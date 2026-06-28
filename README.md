@@ -7,7 +7,7 @@
 
 ## Overview
 
-HRMS supports internal HR operations for small and medium organizations. The backend exposes a JSON REST API secured with JWT. The PyQt6 desktop client provides role-based modules for HR administrators, managers, and employees.
+Human Resource Management System (HRMS) featuring employee management, attendance, leave workflows, payroll, document generation, onboarding, notifications, reports, and role-based access control. Built with Django, Django REST Framework, PostgreSQL, PyQt6, JWT Authentication, and Docker.
 
 **Core modules:** employee records, attendance, leave and permissions, projects, documents, onboarding and resignation, payroll, notifications, dashboard analytics, and exportable reports.
 

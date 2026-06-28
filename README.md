@@ -5,42 +5,12 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![License](https://img.shields.io/badge/License-Proprietary-red)
 
-A full-stack Human Resource Management platform with a Django REST API backend, PostgreSQL database, and PyQt6 desktop client.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [System Architecture](#system-architecture)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [System Requirements](#system-requirements)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running the System](#running-the-system)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [API Documentation](#api-documentation)
-- [Deployment](#deployment)
-- [Screenshots](#screenshots)
-- [Troubleshooting](#troubleshooting)
-- [Common Issues](#common-issues)
-- [Performance Tips](#performance-tips)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-
 ## Overview
 
 HRMS supports internal HR operations for small and medium organizations. The backend exposes a JSON REST API secured with JWT. The PyQt6 desktop client provides role-based modules for HR administrators, managers, and employees.
 
 **Core modules:** employee records, attendance, leave and permissions, projects, documents, onboarding and resignation, payroll, notifications, dashboard analytics, and exportable reports.
 
-Access is controlled by three roles — **HR**, **Manager**, and **Employee** — enforced through Django auth groups and API queryset scoping.
 
 ---
 
@@ -154,13 +124,6 @@ flowchart TB
     DRF --> MEDIA
 ```
 
-### Request flow
-
-1. Client sends `Authorization: Bearer <access_token>`.
-2. DRF authenticates and checks role permissions.
-3. `rbac.py` scopes data to the user's visibility.
-4. Response returned as JSON.
-
 ### Authentication flow
 
 ```mermaid
@@ -173,14 +136,6 @@ sequenceDiagram
     C->>M: Bearer access token
     M-->>C: role + permission flags
 ```
-
-On `401`, the client refreshes via `POST /api/token/refresh/` or logs out.
-
-| Role | Visibility |
-|------|------------|
-| HR | All employees and projects |
-| Manager | Self + direct reports |
-| Employee | Linked employee record |
 
 ---
 
@@ -462,28 +417,6 @@ hrms-system/
 
 ---
 
-## Prerequisites
-
-| Requirement | Version |
-|-------------|---------|
-| Python | 3.12 |
-| PostgreSQL | 16 (15+ supported) |
-| pip | Latest recommended |
-| Git | Any recent version |
-| Docker & Docker Compose | Optional |
-
----
-
-## System Requirements
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| Backend server | 2 CPU, 4 GB RAM | 4 CPU, 8 GB RAM |
-| PostgreSQL storage | 1 GB | 50+ GB |
-| Desktop workstation | 4 GB RAM | 8 GB RAM |
-
----
-
 ## Installation
 
 ### Windows
@@ -645,8 +578,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Swagger UI: [http://127.0.0.1:8000/api/docs/](http://127.0.0.1:8000/api/docs/)
-
 ---
 
 ## Usage
@@ -698,28 +629,6 @@ Place a TLS-terminating reverse proxy (nginx, Caddy, etc.) in front of the API f
 
 ---
 
-## Screenshots
-
-![Login](screenshots/login_page.png)
-
-![Dashboard](screenshots/dashboard.png)
-
-![Employee](screenshots/employee.png)
-
-![Documents](screenshots/documents.png)
-
-![Leave](screenshots/leave.png)
-
-![Payroll](screenshots/payroll.png)
-
-![Projects](screenshots/project.png)
-
-![Notifications](screenshots/notification.png)
-
-![API Documentation](screenshots/api_documentation.png)
-
----
-
 ## Troubleshooting
 
 **Docker** — Check `docker compose logs backend` for credential errors. Ensure `DB_PASSWORD` matches in root `.env` and `backend/.env`.
@@ -752,16 +661,3 @@ Place a TLS-terminating reverse proxy (nginx, Caddy, etc.) in front of the API f
 - Run notification generation during off-peak hours.
 
 ---
-
-## Contributing
-
-1. Fork the repository and create a feature branch.
-2. Set up a local environment per the Installation section.
-3. Run tests: `python manage.py check`, `python manage.py test`
-4. Do not commit `.env` files or secrets.
-5. Open a pull request with a clear description.
-
----
-
-This project does not include a license file. All rights reserved unless a `LICENSE` file is added by the repository owner.
-

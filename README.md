@@ -616,20 +616,3 @@ Listed in `frontend/requirements.txt` but optional (defaults work without `.env`
 8. Schedule `backup_db` via cron/Task Scheduler
 
 ---
-
-## Known Limitations
-
-1. **No web UI** — desktop PyQt only
-2. **No frontend automated tests** — manual QA required for UI
-3. **notifications app has zero unit tests** in test suite
-4. **projects app has 1 API test** — thin coverage for allocations
-5. **Duplicate `get_role()`** in `permissions.py` vs `rbac.py` with inconsistent Manager string
-6. **No email/SMS** notification delivery — in-app only
-7. **No multi-tenant** support
-8. **Payroll** is record + payslip PDF, not full statutory payroll engine
-9. **CI does not run** `docker compose up` integration test
-10. **Backup restore** not automated in CI
-
----
-
-

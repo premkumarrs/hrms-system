@@ -814,22 +814,6 @@ python manage.py migrate --noinput
 
 ---
 
-## Screenshots
-
-| Screenshot | Description |
-|------------|-------------|
-| ![Login](screenshots/login_page.png) | Desktop login screen |
-| ![Dashboard](screenshots/dashboard.png) | Dashboard overview |
-| ![Employees](screenshots/employee.png) | Employee management |
-| ![Documents](screenshots/documents.png) | Document management |
-| ![Leave](screenshots/leave.png) | Leave management |
-| ![Payroll](screenshots/payroll.png) | Payroll module |
-| ![Projects](screenshots/project.png) | Project management |
-| ![Notifications](screenshots/notification.png) | Notifications |
-| ![API Docs](screenshots/api_documentation.png) | Swagger UI |
-
----
-
 ## Troubleshooting
 
 ### Docker

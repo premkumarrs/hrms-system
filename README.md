@@ -1,133 +1,182 @@
 # HRMS — Human Resource Management System
 
-HRMS for internal company use: Django REST API backend, PostgreSQL database, PyQt6 desktop client, Docker deployment.
+Enterprise-oriented HRMS: **Django REST API** backend, **PostgreSQL** database, **PyQt6** desktop client, **Docker** deployment for API + DB.
+
+| Component | Technology | Runs in Docker? |
+|-----------|------------|-----------------|
+| Backend API | Django 6 + DRF + SimpleJWT + Gunicorn | Yes |
+| Database | PostgreSQL 16 | Yes |
+| Desktop UI | PyQt6 | No (host machine) |
+
+**Verified (codebase):** 11 Django apps, 18 domain models, 24 migrations, 63 automated tests, 16 UI screens, 6 management commands, GitHub Actions CI.
+
+See also: [FINAL_AUDIT.md](FINAL_AUDIT.md) · [docs/API_REFERENCE.md](docs/API_REFERENCE.md) · [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) · [docs/SECURITY.md](docs/SECURITY.md)
 
 ---
 
 ## Project Overview
 
-Monorepo with two runtimes:
+Monorepo structure:
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Backend API | Django 6 + DRF + SimpleJWT | REST API, RBAC, business logic |
-| Database | PostgreSQL 16 | Persistent data |
-| Desktop client | PyQt6 | HR / Manager / Employee UI |
-| Deployment | Docker Compose + Gunicorn | API + DB containers |
+```
+hrms-system/
+├── backend/          # Django project (API + business logic)
+├── frontend/         # PyQt6 desktop client
+├── scripts/          # PostgreSQL backup/restore scripts
+├── screenshots/      # UI screenshots for documentation
+├── docs/             # Supplementary guides
+├── Dockerfile        # Backend image
+├── docker-compose.yml
+└── requirements.txt  # Backend Python dependencies
+```
 
-The desktop client calls the API over HTTP. It is **not** containerized; only backend + PostgreSQL run in Docker.
-
-**Verified (codebase, 2026):** 21 domain models, 100+ HTTP routes, 61 backend tests, 15 PyQt screens, 24 migrations, GitHub Actions CI.
+The desktop client communicates with the API over HTTP/JSON using JWT. It is **not** containerized.
 
 ---
 
 ## Features
 
-| Module | Capabilities |
-|--------|--------------|
-| **Employees** | CRUD, department/designation, education, bank, ID proofs, emergency contacts |
-| **Attendance** | Records, check-in/out, summary, reports, payroll cycle (26th–25th) |
-| **Leaves** | Requests, approval/rejection, balance, history |
-| **Permissions** | Short leave requests, approval workflow |
-| **Projects** | Projects, allocations, headcount, employee self-update |
-| **Documents** | Upload, categories, download, PDF generation (offer/appointment/experience) |
-| **Lifecycle** | Onboarding, resignations, joining letters, document checklist |
-| **Payroll** | Salary records, payslip PDF |
-| **Notifications** | In-app alerts, birthdays, anniversaries, unread count |
-| **Dashboard** | Stats, analytics charts, insights |
-| **Reports** | Attendance, leave, payroll, attrition, project headcount |
-| **ESS** | Self-service profile, attendance, leaves, payslips, documents |
-| **Directory** | Employee directory |
-| **Auth** | JWT login, role-based permissions, audit log |
+| Module | Backend | Desktop UI |
+|--------|---------|--------------|
+| Employees | Departments, designations, employee master, education, bank, ID proofs, emergency contacts | Employees, Departments, Designations |
+| Attendance | Records, check-in/out, summary, report, history | Attendance |
+| Leaves | Requests, approve/reject, balance, history | Leaves |
+| Permissions | Short leave requests, approve/reject | Permissions |
+| Projects | Projects, allocations, headcount, self-update | Projects |
+| Documents | Upload, categories, download, PDF letter generation | Documents |
+| Lifecycle | Onboarding, resignations, joining letter, checklist | Lifecycle |
+| Payroll | Salary records, payslip PDF | Payroll |
+| Notifications | In-app alerts, unread count, generate events | Notifications |
+| Dashboard | Stats, analytics charts, insights | Dashboard |
+| Reports | Attendance, leave, payroll, attrition, project headcount | Reports |
+| ESS | Self profile via `/api/me/profile/` | Self Service, Directory |
+| Auth | JWT, RBAC, audit log | Login |
 
 ---
 
 ## System Architecture
 
-```
-┌─────────────────┐     HTTP/JSON      ┌──────────────────────────┐
-│  PyQt6 Desktop  │ ─────────────────► │  Django + DRF + Gunicorn │
-│  (frontend/)    │     JWT Bearer     │  (backend/)              │
-└─────────────────┘                    └────────────┬─────────────┘
-                                                    │
-                                                    ▼
-                                         ┌──────────────────────┐
-                                         │  PostgreSQL 16       │
-                                         └──────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Client["Desktop (host)"]
+        PyQt[PyQt6 Client\nfrontend/]
+    end
+    subgraph Docker["Docker Compose"]
+        API[Django + DRF\nGunicorn :8000]
+        DB[(PostgreSQL 16)]
+    end
+    PyQt -->|HTTP JSON JWT| API
+    API --> DB
 ```
 
-**Processing modes:**
+### Deployment diagram
 
-1. **Local development** — Django `runserver` or Gunicorn on host; PostgreSQL on localhost; PyQt on host.
-2. **Docker** — `db` + `backend` containers; PyQt still on host pointing to `http://127.0.0.1:8000/api`.
+```mermaid
+flowchart LR
+    User[HR / Manager / Employee] --> Desktop[PyQt6 App]
+    Desktop -->|HTTPS optional| Proxy[Reverse Proxy]
+    Proxy --> Gunicorn[Gunicorn :8000]
+    Gunicorn --> Postgres[(PostgreSQL)]
+    Gunicorn --> Media[media volume]
+    Gunicorn --> Logs[log volume]
+```
 
 ---
 
 ## Technology Stack
 
-| Layer | Stack |
-|-------|-------|
-| Language | Python 3.12 |
-| Web framework | Django 6.0.6 |
-| API | Django REST Framework 3.17 |
-| Auth | djangorestframework-simplejwt 5.5 |
-| Database | PostgreSQL only (`psycopg2-binary`) |
-| API docs | drf-spectacular |
-| CORS | django-cors-headers |
-| Desktop | PyQt6 6.11 |
-| HTTP client | requests |
-| Export | openpyxl |
-| WSGI (prod) | Gunicorn |
-| CI | GitHub Actions |
+| Layer | Version / package (from `requirements.txt`) |
+|-------|---------------------------------------------|
+| Python | 3.12 (Dockerfile, CI) |
+| Django | 6.0.6 |
+| DRF | 3.17.1 |
+| JWT | djangorestframework-simplejwt 5.5.1 |
+| DB driver | psycopg2-binary 2.9.12 |
+| API docs | drf-spectacular 0.28.0 |
+| CORS | django-cors-headers 4.9.0 |
+| WSGI | gunicorn ≥22.0 |
+| Desktop | PyQt6 ≥6.6, requests, openpyxl (`frontend/requirements.txt`) |
 
 ---
 
 ## Folder Structure
 
-```
-hrms-system/
-├── .github/workflows/ci.yml    # CI pipeline
-├── .env.example                # Docker Compose DB vars (repo root)
-├── production.env.example      # Production backend template
-├── requirements.txt            # Backend deps (Docker + pip install)
-├── Dockerfile                  # Backend image
-├── docker-compose.yml          # db + backend services
-├── scripts/
-│   ├── backup_postgres.ps1
-│   ├── backup_postgres.sh
-│   └── restore_postgres.ps1
-├── backend/
-│   ├── manage.py
-│   ├── .env.example
-│   ├── config/                 # settings, urls, health, cycle, dates
-│   ├── authentication/         # JWT, RBAC, audit
-│   ├── employees/
-│   ├── attendance/
-│   ├── leaves/
-│   ├── projects/
-│   ├── documents/
-│   ├── lifecycle/
-│   ├── notifications/
-│   ├── payroll/
-│   └── dashboard/              # stats, reports (no models)
-└── frontend/
-    ├── main.py                 # Recommended entry point
-    ├── login_window.py
-    ├── dashboard.py            # Main shell + 15 menu items
-    ├── api_service.py          # REST client
-    ├── ui_helpers.py           # Loading, errors
-    ├── table_utils.py          # Tables, pagination, export
-    ├── *_window.py             # Feature screens (16)
-    ├── *_form.py               # Dialog forms (13)
-    ├── requirements.txt
-    └── .env.example
-```
+### Repository root
+
+| Path | Description |
+|------|-------------|
+| `.github/workflows/ci.yml` | CI: backend tests, frontend compile, docker build |
+| `.env.example` | Docker Compose DB variables |
+| `production.env.example` | Production backend template |
+| `.gitignore` | Excludes venv, `.env`, logs, media |
+| `.dockerignore` | Docker build exclusions |
+| `Dockerfile` | Backend image build |
+| `docker-compose.yml` | `db` + `backend` services |
+| `requirements.txt` | Backend dependencies |
+| `FINAL_AUDIT.md` | Release audit report |
+
+### `backend/`
+
+| Path | Description |
+|------|-------------|
+| `manage.py` | Django entry point |
+| `config/` | `settings.py`, `urls.py`, `health.py`, `cycle.py`, `startup.py` |
+| `config/showcase/` | Enterprise demo seed (`seed_showcase_data`) |
+| `config/management/commands/` | `seed_demo_data`, `seed_showcase_data`, `backup_db`, `audit_permissions` |
+| `authentication/` | JWT views, RBAC, audit, groups, UserProfile |
+| `employees/` | Employee master data models & API |
+| `attendance/` | Attendance models & API |
+| `leaves/` | Leave + Permission models & API |
+| `projects/` | Project + allocation models & API |
+| `documents/` | Document storage, validators, PDF letters |
+| `lifecycle/` | Onboarding, resignation, joining letter |
+| `notifications/` | In-app notifications |
+| `payroll/` | Salary records, payslip PDF |
+| `dashboard/` | Stats, analytics, insights, reports (no models) |
+| `.env.example` | Backend environment template |
+| `.coveragerc` | Coverage config (`fail_under = 70`) |
+
+### `frontend/`
+
+| Path | Description |
+|------|-------------|
+| `main.py` | **Recommended entry** (crash logging enabled) |
+| `login_window.py` | Login screen |
+| `dashboard.py` | Main shell (15 menu items) |
+| `api_service.py` | REST client (~90+ methods) |
+| `ui_helpers.py` | Loading cursor, error dialogs |
+| `table_utils.py` | Tables, pagination, export hooks |
+| `*_window.py` | Feature screens (16 files) |
+| `*_form.py` | Dialog forms (13 files) |
+| `.env.example` | `HRMS_API_URL` |
+
+### `scripts/`
+
+| Script | Purpose |
+|--------|---------|
+| `backup_postgres.ps1` | Windows `pg_dump` backup |
+| `backup_postgres.sh` | Linux/macOS `pg_dump` backup |
+| `restore_postgres.ps1` | Windows restore |
 
 ---
 
 ## Database Design
 
-### Entity relationship (core)
+### Models (18)
+
+| App | Models |
+|-----|--------|
+| employees | `Department`, `Designation`, `Employee`, `Education`, `BankDetails`, `IDProof`, `EmergencyContact` |
+| attendance | `Attendance` |
+| leaves | `Leave`, `Permission` |
+| projects | `Project`, `ProjectAllocation` |
+| documents | `DocumentCategory`, `EmployeeDocument` |
+| lifecycle | `Onboarding`, `Resignation` |
+| notifications | `Notification` |
+| payroll | `SalaryRecord` |
+| authentication | `UserProfile`, `AuditLog` |
+
+### ER diagram
 
 ```mermaid
 erDiagram
@@ -143,72 +192,64 @@ erDiagram
     Project ||--o{ ProjectAllocation : has
     Employee ||--o| UserProfile : links
     User ||--|| UserProfile : has
-    Employee ||--o{ Onboarding : lifecycle
-    Employee ||--o{ Resignation : lifecycle
+    Employee ||--o| Onboarding : lifecycle
+    Employee ||--o| Resignation : lifecycle
     Employee ||--o{ Notification : receives
+    DocumentCategory ||--o{ EmployeeDocument : categorizes
 ```
 
-### Models by app (21 total)
+### Payroll cycle
 
-| App | Models |
-|-----|--------|
-| employees | Department, Designation, Employee, Education, BankDetails, IDProof, EmergencyContact |
-| attendance | Attendance |
-| leaves | Leave, Permission |
-| projects | Project, ProjectAllocation |
-| documents | DocumentCategory, EmployeeDocument |
-| lifecycle | Onboarding, Resignation |
-| notifications | Notification |
-| payroll | SalaryRecord |
-| authentication | UserProfile, AuditLog |
-
-### Indexes (verified in models)
-
-- `attendance`: `(employee, date)`, `(date, status)`
-- `leaves`: `(employee, status)`, `(status, created_at)`, permission `(date)`
-- `payroll`: `(employee, period)` unique
-- `documents`: `(employee, uploaded_at)`, `(category)`
-- `projects`: `(status)`, allocation `(employee, released_on)`
-- `employees`: `(status)`, `(department)`
-- `audit`: `(action, created_at)`
+Pay period uses **26th → 25th** (`config/cycle.py`). `SalaryRecord.period` is `YYYY-MM` of the cycle end month.
 
 ---
 
 ## API Architecture
 
 - **Base URL:** `http://<host>:8000/api/`
-- **Auth:** `POST /api/token/` → `{access, refresh}`; header `Authorization: Bearer <access>`
-- **Refresh:** `POST /api/token/refresh/`
-- **Identity:** `GET /api/me/` → role + permission flags
-- **OpenAPI:** `GET /api/schema/`, Swagger UI at `/api/docs/`
-- **Health:** `GET /api/health/`, `GET /api/health/ready/`
+- **Full route list:** [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
+- **OpenAPI:** `GET /api/schema/`
+- **Swagger UI:** `GET /api/docs/`
 
-### Endpoint groups
+### API groups
 
-| Prefix | Resource |
-|--------|----------|
-| `/api/employees/`, `/departments/`, `/designations/`, `/education/`, `/bank-details/`, `/id-proofs/`, `/emergency-contacts/` | Employee master |
-| `/api/attendance/` | Attendance + check-in/out/summary/report/history |
-| `/api/leaves/`, `/api/permissions/` | Leave & permission workflows |
-| `/api/projects/`, `/api/allocations/` | Projects & staffing |
-| `/api/documents/`, `/api/document-categories/` | Document management |
+| Prefix | Domain |
+|--------|--------|
+| `/api/employees/`, `/departments/`, `/designations/`, … | Employee master |
+| `/api/attendance/` | Attendance + actions |
+| `/api/leaves/`, `/api/permissions/` | Leave workflows |
+| `/api/projects/`, `/api/allocations/` | Projects |
+| `/api/documents/` | Documents + generate |
 | `/api/onboardings/`, `/api/resignations/` | Lifecycle |
 | `/api/notifications/` | Notifications |
 | `/api/salaries/` | Payroll |
-| `/api/dashboard/` | Stats, analytics, insights |
-| `/api/reports/` | Report exports (JSON) |
+| `/api/dashboard/` | Dashboard data |
+| `/api/reports/` | Report exports |
+| `/api/me/` | Identity & self profile |
 
 ---
 
 ## Authentication Flow
 
-1. PyQt `LoginWindow` → `APIService.login(username, password)`
-2. `POST /api/token/` with JSON body
-3. On 200: store `access` + `refresh` tokens
-4. `GET /api/me/` loads role and 13 permission flags
-5. Subsequent calls: `Authorization: Bearer <access>`
-6. On 401: automatic refresh via `/api/token/refresh/`; on failure → session expired dialog
-7. Login/throttle: 20/min; refresh: 60/min (configurable)
+```mermaid
+sequenceDiagram
+    participant UI as PyQt LoginWindow
+    participant API as APIService
+    participant S as Django API
+    UI->>API: login(username, password)
+    API->>S: POST /api/token/
+    S-->>API: access + refresh
+    API->>S: GET /api/me/
+    S-->>API: role + permissions
+    Note over API: Store tokens; set Authorization header
+    API->>S: Subsequent requests Bearer access
+    alt 401 Unauthorized
+        API->>S: POST /api/token/refresh/
+        API->>S: Retry original request
+    end
+```
+
+Throttling: login `20/minute`, refresh `60/minute` (configurable via env).
 
 ---
 
@@ -216,55 +257,103 @@ erDiagram
 
 ### Roles
 
-| Role | Django group | Data scope |
-|------|--------------|------------|
-| **HR** | `HR` | All employees, all modules (write) |
-| **Manager** | `Manager` | Self + direct reports |
-| **Employee** | `Employee` | Self only |
+| API role | Django group | Data scope |
+|----------|--------------|------------|
+| `HR` | `HR` | All employees, all modules (write where permitted) |
+| `MANAGER` | `Manager` | Self + direct reports |
+| `EMPLOYEE` | `Employee` | Self only |
 
-### Permission flags (`GET /api/me/`)
+### Permission flags (`GET /api/me/` → `permissions`)
 
-`full_access`, `manage_employees`, `manage_attendance`, `approve_leave`, `manage_payroll`, `manage_documents`, `manage_projects`, `view_reports`, `manage_lifecycle`, `view_directory`, `self_service`, `view_notifications`, `manage_departments`
+`full_access`, `manage_employees`, `manage_departments`, `manage_designations`, `manage_attendance`, `approve_leave`, `manage_projects`, `view_projects`, `manage_documents`, `manage_lifecycle`, `view_payroll`, `view_reports`, `view_directory`, `view_team`
+
+### Desktop menu rules (`dashboard._menu_visible`)
+
+- **HR** (`full_access`): all 15 menu items
+- **Employee:** Dashboard, Directory, Self Service, Notifications
+- **Manager:** employee set + Attendance, Leaves, Permissions, Projects, Reports, Payroll
+- **HR-limited items:** Employees, Departments, Designations, Documents, Lifecycle use permission flags
 
 ### Enforcement
 
-- DRF classes: `IsHROrReadOnly`, `IsManagerOrHR`, `IsHROrManagerOrReadOnly`
-- Queryset scoping: `filter_employees_for_user`, `filter_by_employee_scope`, `filter_projects_for_user` in `authentication/rbac.py`
+- DRF permission classes in `authentication/permissions.py`
+- Queryset scoping in `authentication/rbac.py`
 
 ---
 
-## Module Flows (summary)
+## Module flows
 
-### Document generation
+### Document generation flow
 
-HR → Documents → Generate → `POST /api/documents/generate/` → PDF in `media/employee_documents/`
+```mermaid
+flowchart LR
+    HR[HR user] --> UI[Document Window]
+    UI --> API[POST /api/documents/generate/]
+    API --> PDF[letter_service.build_*_pdf]
+    PDF --> Store[EmployeeDocument + media/]
+```
 
-### Payroll
+Letter types: `offer`, `appointment`, `experience`, `relieving`, `warning`, `promotion`.
 
-HR → Payroll → `POST /api/salaries/` → `GET /api/salaries/{id}/payslip/` (PDF)
+### Payroll flow
 
-### Attendance
+```mermaid
+flowchart LR
+    HR --> API[POST /api/salaries/]
+    API --> DB[(SalaryRecord)]
+    User --> PDF[GET /api/salaries/id/payslip/]
+    PDF --> payslip_pdf.build_payslip_pdf
+```
 
-Records via API; cycle boundaries from `config/cycle.py` (26th–25th)
+### Attendance flow
 
-### Notifications
+Check-in/out via `POST /api/attendance/check-in/` and `check-out/`. Summary and cycle report via custom actions. Cycle boundaries from `config/cycle.py`.
 
-Scheduled via `python manage.py generate_notifications` or `POST /api/notifications/generate/`
+### Notification flow
 
-### Dashboard
+```mermaid
+flowchart TD
+    Cron[cron / Task Scheduler] --> CMD[manage.py generate_notifications]
+    CMD --> SVC[services.generate_event_notifications]
+    SVC --> DB[(Notification)]
+    HR --> API[POST /api/notifications/generate/]
+    API --> SVC
+    UI[Notification Window] --> GET[GET /api/notifications/]
+```
 
-`refresh_dashboard()` → stats + analytics + insights APIs → charts in PyQt
+See [docs/SCHEDULER.md](docs/SCHEDULER.md).
+
+### Dashboard flow
+
+```mermaid
+flowchart TD
+    UI[Dashboard Page] --> S[GET /api/dashboard/stats/]
+    UI --> A[GET /api/dashboard/analytics/]
+    UI --> I[GET /api/dashboard/insights/]
+    A --> Charts[Attendance / Leave / Headcount / Attrition charts]
+    I --> Widgets[Birthdays / Anniversaries / Pending / Recent notifications]
+```
 
 ---
 
-## System Requirements
+## Processing modes explained
+
+| Mode | Backend command | DB | Frontend |
+|------|-----------------|-----|----------|
+| **Local dev** | `python manage.py runserver 0.0.0.0:8000` | Local PostgreSQL | `python main.py` |
+| **Docker** | Gunicorn via compose | Postgres container | `python main.py` → `http://127.0.0.1:8000/api` |
+| **Production** | Gunicorn behind HTTPS proxy | Managed PostgreSQL | Desktop clients with production `HRMS_API_URL` |
+
+---
+
+## System requirements
 
 ### Hardware (minimum)
 
 | Component | Minimum |
 |-----------|---------|
 | Dev workstation | 4 GB RAM, 2 CPU cores, 10 GB disk |
-| Docker host | 4 GB RAM for Postgres + Gunicorn |
+| Docker host | 4 GB RAM |
 | Desktop clients | 4 GB RAM, 1280×720 display |
 
 ### Software
@@ -275,14 +364,14 @@ Scheduled via `python manage.py generate_notifications` or `POST /api/notificati
 | PostgreSQL | 14+ (16 in Docker) |
 | Docker Desktop | Latest (for container deploy) |
 | Git | 2.x |
-| pg_dump / psql | For backups (optional locally) |
+| `pg_dump` / `psql` | For backups (optional locally) |
 
 ---
 
 ## Prerequisites
 
-1. Python 3.12 installed
-2. PostgreSQL installed and running (local dev) **or** Docker Desktop (container deploy)
+1. Python 3.12
+2. PostgreSQL (local) **or** Docker Desktop (container deploy)
 3. Git
 
 ---
@@ -302,7 +391,7 @@ python -m venv venv
 .\venv\Scripts\activate
 pip install -r ..\requirements.txt
 copy .env.example .env
-# Edit backend\.env — set DB_PASSWORD and SECRET_KEY
+# Edit backend\.env
 ```
 
 ### Frontend virtual environment
@@ -317,7 +406,9 @@ copy .env.example .env
 
 ---
 
-## PostgreSQL Setup (local)
+## Local development setup
+
+### PostgreSQL setup
 
 ```sql
 CREATE DATABASE hrms_db;
@@ -325,7 +416,7 @@ CREATE USER postgres WITH PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE hrms_db TO postgres;
 ```
 
-Set matching values in `backend/.env`:
+Set in `backend/.env`:
 
 ```
 DB_NAME=hrms_db
@@ -335,39 +426,35 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
----
-
-## Database Migration Commands
+### Database migration commands
 
 ```powershell
 cd backend
 .\venv\Scripts\activate
 python manage.py migrate
-python manage.py makemigrations --check   # CI: must show "No changes detected"
+python manage.py makemigrations --check
 ```
 
----
-
-## Seed Commands
+### Seed commands
 
 ```powershell
-# Demo users: hr_demo / mgr_demo / emp_demo (default password demo1234)
+# Minimal demo (hr_demo / mgr_demo / emp_demo, password demo1234)
 python manage.py seed_demo_data
 python manage.py seed_demo_data --password YourPassword
 
-# Sync Django groups with UserProfile roles
-python manage.py sync_hrms_groups
+# Enterprise showcase (60 employees, ABCDEFG Company, password Demo@123)
+python manage.py seed_showcase_data
+python manage.py seed_showcase_data --password YourPassword
 
-# Audit RBAC consistency
+# RBAC maintenance
+python manage.py sync_hrms_groups
 python manage.py audit_permissions
 
-# Generate notification alerts
+# Notifications
 python manage.py generate_notifications
 ```
 
----
-
-## Running Backend (local)
+### Running backend
 
 ```powershell
 cd backend
@@ -375,14 +462,9 @@ cd backend
 python manage.py runserver 0.0.0.0:8000
 ```
 
-Verify:
+Verify: http://127.0.0.1:8000/api/health/ · http://127.0.0.1:8000/api/docs/
 
-- http://127.0.0.1:8000/api/health/
-- http://127.0.0.1:8000/api/docs/
-
----
-
-## Running Frontend
+### Running frontend
 
 ```powershell
 cd frontend
@@ -390,93 +472,81 @@ cd frontend
 python main.py
 ```
 
-`frontend/.env` (optional):
-
-```
-HRMS_API_URL=http://127.0.0.1:8000/api
-```
-
-Default if unset: `http://127.0.0.1:8000/api`
-
 ---
 
-## Docker Setup
-
-### 1. Configure environment
+## Docker setup
 
 ```powershell
 copy .env.example .env
 copy backend\.env.example backend\.env
-```
-
-**Important:** Repo-root `.env` `DB_PASSWORD` must match the PostgreSQL Docker volume credentials. `backend/.env` is used inside containers; `DB_HOST` is overridden to `db` by Compose.
-
-### 2. Build and run
-
-```powershell
 docker compose build
 docker compose up -d
 docker compose ps
 ```
 
-Startup sequence (backend container):
-
-1. `python manage.py migrate --noinput`
-2. `python manage.py collectstatic --noinput`
-3. `gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120`
-
-### 3. Volumes
-
-| Volume | Mount |
-|--------|-------|
-| `postgres_data` | PostgreSQL data |
-| `media_data` | Uploaded/generated documents |
-| `static_data` | Collected static files |
-| `log_data` | Application logs |
-
-### 4. Health checks
-
-- DB: `pg_isready`
-- Backend: HTTP GET `/api/health/` inside container
-- Both services: `restart: unless-stopped`
+Startup: migrate → collectstatic → gunicorn (see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
 
 ---
 
-## Environment Variables
+## Environment variables
 
 ### Backend (`backend/.env`)
 
 | Variable | Required (prod) | Description |
 |----------|-----------------|-------------|
-| `SECRET_KEY` | Yes | Django secret; must not be default when DEBUG=False |
+| `SECRET_KEY` | Yes | Django secret key |
 | `DEBUG` | Yes | `True` dev, `False` production |
 | `ALLOWED_HOSTS` | Yes (prod) | Comma-separated hostnames |
-| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | Yes (prod) | PostgreSQL connection |
+| `DB_NAME` | Yes (prod) | PostgreSQL database name |
+| `DB_USER` | Yes (prod) | PostgreSQL user |
+| `DB_PASSWORD` | Yes (prod) | PostgreSQL password |
+| `DB_HOST` | Yes (prod) | `localhost` or `db` in Docker |
+| `DB_PORT` | Yes (prod) | Default `5432` |
+| `DB_CONN_MAX_AGE` | No | Connection pool seconds (default 60) |
+| `DB_CONN_HEALTH_CHECKS` | No | Default `True` |
+| `DB_CONNECT_TIMEOUT` | No | Default `10` |
 | `CORS_ALLOW_ALL_ORIGINS` | Yes (prod) | Must be `False` in production |
-| `CORS_ALLOWED_ORIGINS` | Yes (prod) | Allowed origins list |
-| `JWT_ACCESS_MINUTES` | No | Default 60 |
-| `JWT_REFRESH_DAYS` | No | Default 1 |
+| `CORS_ALLOWED_ORIGINS` | Yes (prod) | Comma-separated origins |
+| `STATIC_URL`, `STATIC_ROOT` | No | Static files |
+| `MEDIA_URL`, `MEDIA_ROOT` | No | Uploaded files |
+| `HRMS_MAX_UPLOAD_BYTES` | No | Default 5242880 (5 MB) |
+| `DATA_UPLOAD_MAX_MEMORY_SIZE` | No | Default 10 MB |
+| `FILE_UPLOAD_MAX_MEMORY_SIZE` | No | Default 10 MB |
+| `LOG_DIR` | No | Default `logs` |
+| `LOG_LEVEL` | No | Default `INFO` |
+| `DJANGO_LOG_LEVEL` | No | Default `INFO` |
+| `TIME_ZONE` | No | Default `Asia/Kolkata` |
+| `SESSION_COOKIE_SECURE` | No | Auto `not DEBUG` |
+| `CSRF_COOKIE_SECURE` | No | Auto `not DEBUG` |
+| `SECURE_SSL_REDIRECT` | No | Auto `not DEBUG` |
+| `USE_SECURE_PROXY_SSL_HEADER` | No | Set `True` behind HTTPS proxy |
+| `SECURE_HSTS_SECONDS` | No | Default 31536000 when not DEBUG |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` | No | Default `not DEBUG` |
+| `SECURE_HSTS_PRELOAD` | No | Default `False` |
+| `JWT_ACCESS_MINUTES` | No | Default `60` |
+| `JWT_REFRESH_DAYS` | No | Default `1` |
 | `HRMS_LOGIN_THROTTLE` | No | Default `20/minute` |
-| `HRMS_MAX_UPLOAD_BYTES` | No | Default 5 MB |
-| `LOG_DIR`, `LOG_LEVEL` | No | Logging |
+| `HRMS_TOKEN_REFRESH_THROTTLE` | No | Default `60/minute` |
 
-See `backend/.env.example` and `production.env.example` for full list.
+Templates: `backend/.env.example`, `production.env.example`, `backend/production.env.example`.
 
 ### Frontend (`frontend/.env`)
 
 | Variable | Description |
 |----------|-------------|
-| `HRMS_API_URL` | API base including `/api` suffix |
+| `HRMS_API_URL` | API base including `/api` (default `http://127.0.0.1:8000/api`) |
 
 ### Docker Compose (repo root `.env`)
 
 | Variable | Description |
 |----------|-------------|
-| `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Substituted into Postgres service |
+| `DB_NAME` | Postgres database name |
+| `DB_USER` | Postgres user |
+| `DB_PASSWORD` | Postgres password (must match volume) |
 
 ---
 
-## Running Tests
+## Running tests
 
 ```powershell
 cd backend
@@ -489,6 +559,7 @@ python manage.py makemigrations --check
 With coverage:
 
 ```powershell
+pip install coverage
 coverage run --source=authentication,employees,attendance,leaves,projects,documents,lifecycle,notifications,payroll,dashboard,config manage.py test
 coverage report
 ```
@@ -504,19 +575,13 @@ python -m compileall . -x venv
 
 ## Running CI
 
-Pipeline: `.github/workflows/ci.yml`
+Pipeline: `.github/workflows/ci.yml` on push/PR to `main`, `master`, `develop`.
 
-Triggers: push/PR to `main`, `master`, `develop`
-
-Jobs:
-
-1. **backend** — Postgres service, `check`, `makemigrations --check`, `test`
-2. **frontend** — `compileall`
-3. **docker** — `docker compose build`
+Jobs: backend tests, frontend `compileall`, `docker compose build`.
 
 ---
 
-## Backup & Restore
+## Backup and restore
 
 ### Management command
 
@@ -538,12 +603,14 @@ Requires `pg_dump` on PATH.
 
 ---
 
-## Health Checks
+## Health checks
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /api/health/` | Liveness (no DB required) |
-| `GET /api/health/ready/` | Readiness (DB ping) |
+| `GET /api/health/` | Liveness |
+| `GET /api/health/ready/` | Readiness (database); returns 503 if DB down |
+
+Docker healthchecks use these endpoints (backend) and `pg_isready` (database).
 
 ---
 
@@ -551,68 +618,251 @@ Requires `pg_dump` on PATH.
 
 | Location | Content |
 |----------|---------|
-| `backend/logs/hrms.log` | General application log |
+| `backend/logs/hrms.log` | General application log (rotating 5 MB × 5) |
 | `backend/logs/hrms-error.log` | ERROR+ only |
 | `frontend/logs/hrms-client.log` | Desktop client |
-| `frontend/logs/hrms-client-error.log` | Client errors + uncaught exceptions |
+| `frontend/logs/hrms-client-error.log` | Client errors |
+
+Loggers: `hrms`, `hrms.audit`, `hrms.health`, `hrms.startup`, `hrms.api`.
+
+---
+
+## Monitoring
+
+No built-in Prometheus/Grafana. Recommended:
+
+- Poll `GET /api/health/ready/` from load balancer or uptime monitor
+- Ship `hrms-error.log` to log aggregator
+- Alert on readiness `503` or repeated login failures
 
 ---
 
 ## Troubleshooting
 
-### "Network error" on login (fixed)
+### Network error on login
 
-**Cause:** `requests` Response objects are falsy for HTTP 4xx; old code used `if not response:`.
-
-**Fix:** Use `response is None` for missing responses; check `response.status_code` for errors.
-
-### "Could not reach server" with backend running
-
-1. Confirm `HRMS_API_URL=http://127.0.0.1:8000/api` in `frontend/.env`
-2. Test: `curl http://127.0.0.1:8000/api/health/`
+1. Confirm backend: `curl http://127.0.0.1:8000/api/health/`
+2. Set `HRMS_API_URL=http://127.0.0.1:8000/api` in `frontend/.env`
 3. Check `frontend/logs/hrms-client.log`
 
 ### Docker: password authentication failed
 
-Align repo-root `.env` `DB_PASSWORD` with Postgres volume. If volume was initialized with a different password, either match it or reset: `docker compose down -v` (destroys data).
+Align repo `.env` `DB_PASSWORD` with Postgres volume. Reset volume only if data loss acceptable: `docker compose down -v`.
 
-### PyQt cursor crash after login
+### Session expired immediately
 
-Ensure `ui_helpers.py` uses `Qt.CursorShape.WaitCursor`, not `app.cursor().Shape.WaitCursor`.
+Check JWT expiry (`JWT_ACCESS_MINUTES`). Verify system clock sync.
 
-### `python-dotenv` not installed
+### `pg_dump not found`
+
+Install PostgreSQL client tools or use Docker: `docker compose exec db pg_dump ...`
+
+### Migrations out of date
 
 ```powershell
-cd frontend
-pip install python-dotenv
+python manage.py makemigrations --check
+python manage.py migrate
 ```
 
-Listed in `frontend/requirements.txt` but optional (defaults work without `.env`).
+---
+
+## Common errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `ImproperlyConfigured` on startup | Missing prod env vars | Fill `backend/.env` per `production.env.example` |
+| `401` on API calls | Expired/missing JWT | Re-login; check refresh flow |
+| `403 Forbidden` | RBAC denial | Verify role and employee linkage |
+| `Connection refused` | Backend not running | Start runserver or `docker compose up` |
+| Import error in frontend | Missing venv packages | `pip install -r frontend/requirements.txt` |
 
 ---
 
-## Security Guidelines
+## Performance tips
 
-1. Set `DEBUG=False` in production
-2. Use strong `SECRET_KEY` (50+ random chars)
-3. Set explicit `ALLOWED_HOSTS` and `CORS_ALLOWED_ORIGINS`
-4. Terminate TLS at reverse proxy; set `USE_SECURE_PROXY_SSL_HEADER=True`
-5. Never commit `backend/.env` or `.env` with real passwords
-6. Rotate JWT secret by changing `SECRET_KEY` (invalidates all tokens)
-7. Run `python manage.py audit_permissions` after role changes
-8. Limit media directory permissions on server
+- Backend uses `select_related` on list viewsets (attendance, leaves, employees, etc.)
+- Use Docker volumes for media/logs to avoid container layer I/O
+- Gunicorn workers: 3 (default in compose); tune per CPU
+- Desktop client paginates tables locally (`table_utils.TablePager`)
 
 ---
 
-## Production Deployment
+## Security guidelines
 
-1. Copy `production.env.example` → `backend/.env` and fill all values
-2. Copy `.env.example` → `.env` (Docker DB credentials)
-3. `docker compose build && docker compose up -d`
-4. `docker compose exec backend python manage.py migrate`
-5. `docker compose exec backend python manage.py seed_demo_data` (optional)
-6. Distribute PyQt client with `HRMS_API_URL` pointing to production API
-7. Configure reverse proxy (nginx) with HTTPS
-8. Schedule `backup_db` via cron/Task Scheduler
+See [docs/SECURITY.md](docs/SECURITY.md).
 
 ---
+
+## Production deployment
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and `production.env.example`.
+
+### Production checklist
+
+- [ ] `DEBUG=False`, strong `SECRET_KEY`
+- [ ] `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS` set
+- [ ] HTTPS reverse proxy + `USE_SECURE_PROXY_SSL_HEADER=True`
+- [ ] Firewall PostgreSQL port
+- [ ] `migrate` + optional `seed_showcase_data`
+- [ ] `sync_hrms_groups` + `audit_permissions`
+- [ ] Backup schedule configured
+- [ ] Notification schedule configured
+- [ ] Desktop clients distributed with correct `HRMS_API_URL`
+
+---
+
+## Upgrade guide
+
+1. Pull latest code
+2. `pip install -r requirements.txt` (backend) and `pip install -r frontend/requirements.txt`
+3. `python manage.py migrate`
+4. `docker compose build && docker compose up -d` (if using Docker)
+5. Run `python manage.py test`
+6. Run `python manage.py audit_permissions`
+
+---
+
+## Architecture decisions
+
+| Decision | Rationale (from code) |
+|----------|----------------------|
+| Desktop PyQt6 vs web UI | `frontend/` is PyQt-only; no web SPA in repo |
+| JWT stateless API | `REST_FRAMEWORK` uses `JWTAuthentication` only |
+| PostgreSQL only | `settings.py` has no SQLite production path; prod requires DB env vars |
+| Payroll cycle 26–25 | `config/cycle.py` `CYCLE_START_DAY = 26` |
+| Docker: API only | Compose defines `db` + `backend`; no frontend service |
+| Groups + profile RBAC | `authentication/groups.py` syncs Django groups from `UserProfile.role` |
+
+---
+
+## Known limitations
+
+1. No web UI — desktop client only
+2. No frontend automated tests in CI
+3. Project status: `ACTIVE` / `COMPLETED` only (no `ON_HOLD` enum)
+4. Leave types: `CL`, `SL`, `EL` only
+5. Payroll: salary records + payslip PDF, not full statutory payroll
+6. No server-side default pagination on all list endpoints
+7. No email/SMS notifications — in-app only
+8. CI does not run `docker compose up` integration tests
+9. Duplicate `production.env.example` at repo root and `backend/`
+
+---
+
+## Future improvements
+
+- PyQt UI tests (pytest-qt)
+- Prometheus metrics endpoint
+- Email notifications
+- Server-side pagination
+- Consolidate duplicate `get_role()` implementations
+- Non-root Docker user
+
+---
+
+## Additional features that can be implemented
+
+- Biometric attendance integration
+- Org chart visualization
+- Bulk CSV employee import
+- Two-factor authentication
+- API versioning (`/api/v1/`)
+
+---
+
+## Screenshots
+
+Screenshots are in `screenshots/`:
+
+| File | Screen |
+|------|--------|
+| `login_page.png` | Login |
+| `dashboard.png` | Dashboard |
+| `employee.png` | Employees |
+| `leave.png` | Leaves |
+| `project.png` | Projects |
+| `documents.png` | Documents |
+| `payroll.png` | Payroll |
+| `notification.png` | Notifications |
+| `api_documentation.png` | Swagger UI |
+
+---
+
+## Demo credentials
+
+### Quick demo (`seed_demo_data`)
+
+| Username | Password (default) | Role |
+|----------|-------------------|------|
+| `hr_demo` | `demo1234` | HR |
+| `mgr_demo` | `demo1234` | Manager |
+| `emp_demo` | `demo1234` | Employee |
+
+### Enterprise showcase (`seed_showcase_data`)
+
+| Username | Password (default) | Role |
+|----------|-------------------|------|
+| `hr.admin` | `Demo@123` | HR |
+| `hr.executive` | `Demo@123` | HR |
+| `hr.manager` | `Demo@123` | Manager |
+| `eng.manager` | `Demo@123` | Manager |
+| `sales.manager` | `Demo@123` | Manager |
+| `ops.manager` | `Demo@123` | Manager |
+| `emp001` … `emp060` | `Demo@123` | Per RBAC assignment |
+
+Company: **ABCDEFG Company** — 60 employees across Chennai, Bangalore, Hyderabad, Pune, Mumbai.
+
+---
+
+## Contributing guide
+
+1. Branch from `develop` (or `main` per team policy)
+2. Backend changes: add tests in app `tests.py` or `config/tests/`
+3. Run `python manage.py test` and `makemigrations --check`
+4. Frontend: `python -m compileall frontend -x venv`
+5. Open PR — CI must pass
+
+---
+
+## License
+
+No license file in repository. Add explicit license before public distribution.
+
+---
+
+## FAQ
+
+**Q: Which Python entry point for the desktop app?**  
+A: `python main.py` (enables crash logging via `log_config`).
+
+**Q: Where is the API documented interactively?**  
+A: http://127.0.0.1:8000/api/docs/ when backend is running.
+
+**Q: Does CORS affect PyQt?**  
+A: No. CORS applies to browsers only.
+
+**Q: How many tests?**  
+A: 63 tests (`python manage.py test`).
+
+**Q: How do I populate demo data for presentations?**  
+A: `python manage.py seed_showcase_data`
+
+**Q: Where is the release audit?**  
+A: [FINAL_AUDIT.md](FINAL_AUDIT.md)
+
+---
+
+## Management commands reference
+
+| Command | Description |
+|---------|-------------|
+| `seed_demo_data` | 3 demo users + minimal employees |
+| `seed_showcase_data` | 60-employee enterprise dataset |
+| `backup_db` | PostgreSQL SQL dump via `pg_dump` |
+| `audit_permissions` | Report UserProfile ↔ group mismatches |
+| `sync_hrms_groups` | Sync all profile Django groups |
+| `generate_notifications` | Birthday/anniversary/pending alerts |
+
+---
+
+*Documentation generated from repository source. Last verified: 2026-06-28.*

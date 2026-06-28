@@ -1,0 +1,13 @@
+# HRMS backend (Docker + manual deploy)
+Django==6.0.6
+djangorestframework==3.17.1
+djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.9.0
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
+drf-spectacular==0.28.0
+
+# HRMS desktop client (optional — install in frontend venv)
+# PyQt6>=6.6
+# requests>=2.31
+# openpyxl>=3.1

@@ -1,0 +1,13 @@
+[run]
+source = .
+omit =
+    */venv/*
+    */migrations/*
+    manage.py
+    */admin.py
+    hrms_test_utils.py
+
+[report]
+show_missing = True
+skip_covered = False
+fail_under = 70

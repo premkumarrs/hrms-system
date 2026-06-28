@@ -20,7 +20,6 @@ HRMS is designed for internal HR operations at small and medium organizations. T
 - Dashboard analytics and exportable reports
 - In-app notifications with scheduled generation
 
-The system uses three roles — **HR**, **Manager**, and **Employee** — enforced through Django auth groups and API queryset scoping.
 
 ---
 

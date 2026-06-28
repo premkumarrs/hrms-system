@@ -1,6 +1,6 @@
 # HRMS — Human Resource Management System
 
-Enterprise-oriented HRMS for internal company use: Django REST API backend, PostgreSQL database, PyQt6 desktop client, Docker deployment.
+HRMS for internal company use: Django REST API backend, PostgreSQL database, PyQt6 desktop client, Docker deployment.
 
 ---
 
